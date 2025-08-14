@@ -3,8 +3,21 @@ package build
 
 import mill.*, scalalib.*
 
-trait AnyScalaModule extends ScalaModule {
+trait AnyScalaModule extends ScalaModule, NativeImageModule {
   def scalaVersion = "3.7.2"
+
+  def jvmId = "liberica-nik:17"
+
+  def nativeImageOptions = Seq("--no-fallback")
 }
 
-object scalox extends AnyScalaModule
+object `package` extends Module {
+
+  object scalox extends AnyScalaModule
+
+  def build = Task {
+    val scaloxExe = scalox.nativeImage()
+    os.copy(scaloxExe.path, Task.dest / "scalox")
+  }
+
+}
