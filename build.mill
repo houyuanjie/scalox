@@ -1,10 +1,12 @@
 //| mill-version: 1.0.3
 package build
 
-import mill.*, scalalib.*
+import mill.*, scalalib.*, scalafmt.ScalafmtModule
 
-trait AnyScalaModule extends ScalaModule, NativeImageModule {
+trait AnyScalaModule extends ScalaModule, ScalafmtModule, NativeImageModule {
   def scalaVersion = "3.7.2"
+
+  def scalacOptions = Seq("-Werror")
 
   def jvmId = "liberica-nik:17"
 

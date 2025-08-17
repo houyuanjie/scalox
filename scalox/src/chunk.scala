@@ -3,17 +3,26 @@ package scalox
 import scala.collection.mutable
 import scala.util.Try
 
-enum OpCode {
-  case Constant
-  case Return
+enum OpCode(val length: Int) {
+  case Constant extends OpCode(OpCode.CONSTANT_INSTRUCTION_LENGTH)
+  case Add      extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
+  case Subtract extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
+  case Multiply extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
+  case Divide   extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
+  case Negate   extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
+  case Return   extends OpCode(OpCode.SIMPLE_INSTRUCTION_LENGTH)
 
   val byte = ordinal.toByte
 }
 
 object OpCode {
+  final val CONSTANT_INSTRUCTION_LENGTH = 2
+  final val INVOKE_INSTRUCTION_LENGTH   = 3
+  final val SIMPLE_INSTRUCTION_LENGTH   = 1
+  final val BYTE_INSTRUCTION_LENGTH     = 2
+  final val JUMP_INSTRUCTION_LENGTH     = 3
 
   def of(byte: Byte) = OpCode.fromOrdinal(byte.toInt)
-
 }
 
 final class Chunk(
@@ -21,65 +30,88 @@ final class Chunk(
     initLines: Seq[Int] = Seq.empty,
     initConstants: Seq[Value] = Seq.empty
 ) {
-  val code: mutable.Buffer[Byte] = mutable.ArrayBuffer.from(initCode)
-  val lines: mutable.Buffer[Int] = mutable.ArrayBuffer.from(initLines)
-  val constants: mutable.Buffer[Value] = mutable.ArrayBuffer.from(initConstants)
+  private val code: mutable.Buffer[Byte]       = mutable.ArrayBuffer.from(initCode)
+  private val lines: mutable.Buffer[Int]       = mutable.ArrayBuffer.from(initLines)
+  private val constants: mutable.Buffer[Value] = mutable.ArrayBuffer.from(initConstants)
 
-  def count = code.length
+  def count = this.code.length
 
   def writeByte(byte: Byte, line: Int): Unit = {
-    code += byte
-    lines += line
+    this.code += byte
+    this.lines += line
   }
 
   def write(opc: OpCode, line: Int): Unit = {
     writeByte(opc.byte, line)
   }
 
+  def readByte(ip: Int) = this.code(ip)
+
   def addConstant(value: Value) = {
     constants += value
     constants.length - 1
   }
 
-  final case class Disasm(offset: Int, line: Int, op: Either[String, OpCode])
+  def readConstant(index: Int) = this.constants(index)
 
-  def disasm = {
-    val ops = new mutable.ArrayBuffer[Disasm](count)
+  final case class DisasmInstruction(
+      offset: Int,
+      line: Int,
+      op: Either[String, OpCode]
+  )
+
+  def disasmInstruction(offset: Int) = {
+    val byte = this.code(offset)
+    val line = this.lines(offset)
+    val op   = Try(Right(OpCode.of(byte)))
+      .getOrElse(Left(s"Unknown opcode ${byte}"))
+
+    new DisasmInstruction(offset, line, op)
+  }
+
+  def printDisasmInstruction(inst: DisasmInstruction): Unit = {
+    val offset = inst.offset
+
+    val string = inst.op match
+      case Left(msg)              => msg
+      case Right(OpCode.Constant) =>
+        val index = this.code(offset + 1)
+        f"let cnst_${index}%d = ${constants(index).show}"
+      case Right(opc) => opc
+
+    println(f"// ${offset}%04d (line ${inst.line}%4d) ${string}")
+  }
+
+  def printDisasmInstruction(offset: Int): Unit = {
+    val inst = disasmInstruction(offset)
+
+    printDisasmInstruction(inst)
+  }
+
+  def disasmChunk = {
+    val ops = new mutable.ArrayBuffer[DisasmInstruction](count)
 
     var offset = 0
 
     while offset < count do
-      val line = lines(offset)
-      val byte = code(offset)
-      val op = Try(Right(OpCode.of(byte)))
-        .getOrElse(Left(s"Unknown opcode ${byte}"))
+      val inst = disasmInstruction(offset)
 
-      ops += new Disasm(offset, line, op)
+      ops += inst
 
-      op match
+      inst.op match
         case Left(_) =>
           offset += 1
-        case Right(OpCode.Constant) =>
-          offset += 2
-        case Right(OpCode.Return) =>
-          offset += 1
+        case Right(opc) =>
+          offset += opc.length
 
     ops.toSeq
   }
 
-  def printDisasm(name: String): Unit = {
-    println(s"====== ${name}")
+  def printDisasmChunk(name: String): Unit = {
+    println(s"// start <${name}>")
 
-    disasm.foreach { case Disasm(offset, line, op) =>
-      val string = op match
-        case Left(msg) => msg
-        case Right(OpCode.Constant) =>
-          val index = code(offset + 1)
-          f"set constants[${index}%d] = ${constants(index).show}"
-        case Right(opc) => opc
+    disasmChunk.foreach(printDisasmInstruction)
 
-      println(f"${offset}%04d (line ${line}%4d) ${string}")
-    }
+    println(s"// end <${name}>")
   }
-
 }
