@@ -6,7 +6,12 @@ import mill.*, scalalib.*, scalafmt.ScalafmtModule
 trait AnyScalaModule extends ScalaModule, ScalafmtModule, NativeImageModule {
   def scalaVersion = "3.7.2"
 
-  def scalacOptions = Seq("-Werror")
+  def scalacOptions = Seq(
+    "-Wunused:imports",
+    "-feature",
+    "-deprecation",
+    "-unchecked"
+  )
 
   def jvmId = "liberica-nik:17"
 
