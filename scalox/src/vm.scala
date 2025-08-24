@@ -30,7 +30,7 @@ final class VM(initStack: Seq[Value] = Seq.empty, var debug: Boolean = false) {
   }
 
   @tailrec
-  def run(): InterpretResult = {
+  private def run(): InterpretResult = {
     if debug then
       printStack()
       this.chunk.printDisasmInstruction(this.ip)
@@ -68,7 +68,7 @@ final class VM(initStack: Seq[Value] = Seq.empty, var debug: Boolean = false) {
     run()
   }
 
-  def readNextByte() = {
+  private def readNextByte() = {
     val byte = this.chunk.readByte(this.ip)
 
     this.ip += 1
@@ -76,7 +76,7 @@ final class VM(initStack: Seq[Value] = Seq.empty, var debug: Boolean = false) {
     byte
   }
 
-  def readNextConstant() = {
+  private def readNextConstant() = {
     val index = readNextByte()
 
     this.chunk.readConstant(index)
