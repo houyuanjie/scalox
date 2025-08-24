@@ -9,7 +9,7 @@ enum InterpretResult {
 }
 
 final class VM(initStack: Seq[Value] = Seq.empty, var debug: Boolean = false) {
-  private val stack: mutable.Stack[Value] = mutable.ArrayStack.from(initStack)
+  private val stack = mutable.Stack.from(initStack)
 
   private var chunk: Chunk = uninitialized
   private var ip: Int      = uninitialized
